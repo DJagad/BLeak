@@ -239,6 +239,16 @@ function propagateGrowth(oldG: HeapGraph, oldGrowth: TwoBitArray, newG: HeapGrap
     if ((oldNodeGrowthStatus === GrowthStatus.NEW || oldNodeGrowthStatus === GrowthStatus.GROWING) && oldNode.numProperties() < newNode.numProperties()) {
       newGrowth.set(newIndex, GrowthStatus.GROWING);
     }
+    /*
+    This is where the Retained Size function will be called
+    */
+    //Now this loop will take care for the memory leaks in which the object count is not increasing but the Retained Size will be increase certainly
+    if ((oldNodeGrowthStatus === GrowthStatus.NOT_GROWING) && oldNode.numProperties() == newNode.numProperties()){
+      if(oldNode.getRetainedSize() < newNode.getRetainedSize()){
+        newGrowth.set(newIndex, GrowthStatus.GROWING);
+      }
+    }
+
 
     // Visit shared children.
     const oldEdges = new Map<string | number, EdgeIndex>();
@@ -444,6 +454,13 @@ export class Edge {
   public get to(): Node {
     return new Node(this._heap.edgeToNodes[this.edgeIndex], this._heap);
   }
+  /*
+  Here We will be adding size function which will return the size of the specific edges after converting to the nodes
+  */
+  public get size(): number {
+    const k = new Node(this._heap.edgeToNodes[this.edgeIndex],this._heap);
+    return (k.size);
+  }  
   public get toIndex(): NodeIndex {
     return this._heap.edgeToNodes[this.edgeIndex];
   }
@@ -584,6 +601,34 @@ class Node {
     }
     return new Edge(index, this._heap);
   }
+  
+  /*
+  Here We will add RetainedSize Function for getting Retained Size 
+  */
+   public getRetainedSize(): number {
+    //Now we know the size of the node now taking the sizes for the childs so fot that we will be using the above code
+    let siz:number = this._heap.nodeSizes[this.nodeIndex];
+    //Getting the first Edges for the Nodes
+    let fei = this._heap.firstEdgeIndexes;
+    //Now Finding the number of edges for the given node
+    let fei_1:number = fei[this.nodeIndex + 1] - fei[this.nodeIndex]
+    //Initialization of f_size
+    let f_size:number=0;
+    //Calling loop for calculating Nodes
+    for(let i=1; i <= fei_1; i++){
+      //Now index will be called to store the Edge Index
+      const index = fei[this.nodeIndex] + i as EdgeIndex;
+      //This will make edge for const ind
+      const ind= new Edge(index, this._heap);
+      //Now we will create the edges to node and find their size
+      const num:number = ind.size;
+      //Now seeing the edge mirror converting the edges 
+      f_size=siz+num;
+    }
+    return (f_size);
+  }
+
+  
 
   /**
    * Measures the number of properties on the node.
